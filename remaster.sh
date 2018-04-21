@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euxo pipefail
+set -euo pipefail
 
 usage() {
   echo "Usage: $(basename "$0") <Clonezilla .zip file>"
@@ -68,5 +68,5 @@ fi
 rm -rf squashfs-root
 popd
 
-zip -r "$remastered_file" "$tmp_dir"
+zip -qr "$remastered_file" "$tmp_dir"
 rm -rf "$tmp_dir"
