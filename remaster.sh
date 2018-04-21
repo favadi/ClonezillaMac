@@ -15,7 +15,7 @@ readonly prefix="CZMac"
 readonly cz_path="$1"
 readonly cz_file="$(basename "$cz_path")"
 readonly tmp_dir="$(mktemp -d)"
-readonly remastered_file="$(basedir "$cz_path")/$prefix-$(basename "$cz_path")"
+readonly remastered_file="$prefix-$cz_file"
 
 if [[ $(whoami) != "root" ]]; then
     echo "This program should be run as root!"
