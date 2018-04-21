@@ -68,5 +68,7 @@ fi
 rm -rf squashfs-root
 popd
 
-zip -qr "$remastered_file" "$tmp_dir"
+pushd "$tmp_dir"
+zip -qr "$remastered_file" .
+popd
 rm -rf "$tmp_dir"
