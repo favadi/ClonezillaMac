@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $(basename "$0") <Clonezilla .zip file>"
+    echo "Usage: $(basename "$0") <Clonezilla .zip file>"
 }
 
 if [ "$#" != "1" ]; then
