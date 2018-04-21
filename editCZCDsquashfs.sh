@@ -1,4 +1,13 @@
 #!/bin/sh
+# editCZCD version 12. May 26th, 2015. Updated by Michael Munger <michael@highpoweredhelp.com>
+# Updates:
+# 1. Support for Clonezilla v2.x+
+# 2. No longer attempts to download the iso. This breaks too easily.
+# 3. BASEDIR now defaults to /tmp/
+# 4. OUTPUTDEV deprecated. Restircted to ISO output, since we usually use UBS sticks now-a-days.
+# 
+# Original script information and credits retained below:
+#
 # editCZCD version Fr 11. Jan 18:02:48 CET 2008
 # Use the editCzCD script to modify clonezilla live cd content and burn a CD from it.
 # Copyright (c) Casual J. Programmer <cprogrammer@users.sourceforge.net> partially
@@ -7,7 +16,7 @@
 # Suggestions and Feedback welcome, have a lot of fun ...
 # Maybe freely used and copied provided this header remains intact.
 
-# Tecnología de la Información <ti@imm.gub.uy>
+# TecnologÃ­a de la InformaciÃ³n <ti@imm.gub.uy>
 # Modified to handle new versions of Clonezilla (since 1.2.0-1) which use squashfs
 
 # Use genisoimage instead of mkisofs. genisoimage is a fork of mkisofs
@@ -26,30 +35,60 @@
 # -publisher
 # -V Volume label-V $VOLUME 
 
-#CZVERSION="clonezilla-live-1.0.9-1.iso"
-CZVERSION="clonezilla-live-1.2.2-31.iso"
-#clonezilla-live-1.0.7-18.iso
+usage() {
+  echo ""
+  echo "This program MUST be run as root"
+  echo ""
+  echo "Usage: editCZCDsquashfs.sh [/path/to/downloaded/iso/file]"
+  echo ""
+  exit 1
+}
+
+if [ $(whoami) != "root" ]; then
+  echo "$0 should be run as root! You're not root. Magic 8 ball says: RTFM."
+  usage
+fi
+
+if [ $# -eq 0 ]; then
+  echo "Oops. Perhaps you didn't RTFM?"
+  usage
+fi
+
+#Changed, 5/25/2015 - Michael Munger - Updated for current version of CZ
+CZVERSION=$1
+
+
+echo -n "Verifying presence of the Clonazilla ISO file..."
+if [ ! -f ${CZVERSION} ]; then
+  echo "Cannot find the ISO file for Clonezilla. Perhaps you didn't pass it correctly as the first parameter to this script?"
+  usage()
+  exit 1
+else
+  echo "[OK]"
+fi
+
 #Set to the version you want to use, for details see http://clonezilla.sourceforge.net/
 
-PREFIX="cjp-"
+#Set to czrr, (Clonezilla remote restore)
+PREFIX="czrr-"
 ISO_FILE="${PREFIX}${CZVERSION}"
 
-APPLICATION="Clonezilla Live CD"
+APPLICATION="Clonezilla Live Remote Restore CD"
 PUBLISHER="DRBL/Clonezilla http://drbl.name http://clonezilla.org"
 #Leave application and publisher alone
 
-VOLUME="CJP's special CZCD"
-PREPARER="Casual J. Programmer <cprogrammer@users.sourceforge.net>"
+VOLUME="RRCZ"
+PREPARER="Michael Munger <michael@highpoweredhelp.com>"
+
 #Set volume to your liking, preparer to your name and email or leave blank
 
-DLFROM="http://mesh.dl.sourceforge.net/sourceforge/clonezilla"
-# http://puzzle.dl.sourceforge.net/sourceforge/clonezilla
-# The download host that suits you best
-
+#
 BASEDIR=/tmp
 TMPDIRO=$BASEDIR/clonezilla
 TMPDIRN=$BASEDIR/clonezillan
 MAKE="-makeiso"
+## <deprecated>
+
 ##OUTPUTDEV=$(cdrecord --devices | grep 0 | cut --characters=10-18)
 #may be /dev/scd0 or other on your system, use cdrecord --devices to identify
 
@@ -57,41 +96,51 @@ MAKE="-makeiso"
 # identify devices only when -b is specified
 #OUTPUTDEV=$(wodim --devices | grep 0 | cut --delimiter=\' --fields=2)
 
-if [ $(whoami) != "root" ]; then
-  echo "$0 should be run as root!"
-  exit 1
-fi
+## </deprecated>
 
-if ! type genisoimage &>/dev/null; then
-  echo "Program genisoimage is not available! You have to install it."
-  exit 1
-fi
+# Checks to see if a dependency is installed by using the whcih command. If
+# the return value from the which command is 0 (zero), then we assume that the
+# item is not installed because the string length of the path to an item can
+# never be zero.
+#
+# Usage: check_dependency someprogram
 
-if [ "$1" = "-b" ]; then
-  if ! type wodim &>/dev/null; then
-    echo "Program wodim is not available! You have to install it."
+check_dependency() {
+  echo -n "Checking for $1..."
+
+  TEST=`which $1`
+  EXISTS=${#TEST}
+
+  if [ ${EXISTS} -gt 0 ]; then
+    echo "[OK]"
+  else
+    echo "[FAILED]"
+    echo "You need to install $1 before proceeding."
     exit 1
   fi
-  OUTPUTDEV=$(wodim --devices | grep 0 | cut --delimiter=\' --fields=2)
-  [ -z "$OUTPUTDEV" ] && echo "-b option specified but no drive found!" && exit 1
-fi
+}
 
-if ! type unsquashfs &>/dev/null; then
-  echo "Program unsquashfs is not available! You have to install it."
-  exit 1
-fi
+#Check to see if genisoimage is installed.
+check_dependency genisoimage
+check_dependency unsquashfs
+check_dependency mksquashfs
 
-if ! type mksquashfs &>/dev/null; then
-  echo "Program mksquashfs is not available! You have to install it."
-  exit 1
-fi
+#This should probably be deprecated as well since we no longer support
+#OUTPUTDEV. Leving it here in case someone really needs it.
+#if [ "$1" = "-b" ]; then
+#  # Check to see if wodim is installed
+#  check_dependency wodim
+#
+#  OUTPUTDEV=$(wodim --devices | grep 0 | cut --delimiter=\' --fields=2)
+#  [ -z "$OUTPUTDEV" ] && echo "-b option specified but no drive found!" && exit 1
+#fi
 
+#Remove the directories to start clean.
 rm -rf $TMPDIRO
 rm -rf $TMPDIRN
 
-if [ "$( ls $BASEDIR/$CZVERSION 2>/dev/null)" != "$BASEDIR/$CZVERSION" ]; then 
-        wget -P $BASEDIR $DLFROM/$CZVERSION
-fi
+#Copy a fresh version of the iso to the BASEDIR to get started.
+cp $CZVERSION $BASEDIR
 
 mkdir $TMPDIRO
 mkdir $TMPDIRN
@@ -100,7 +149,6 @@ echo "Preparing to decompress filesystem.squashfs..."
 mount -o loop $BASEDIR/$CZVERSION $TMPDIRO
 
 cp -a $TMPDIRO/* $TMPDIRN
-##chmod -R 755 $TMPDIRN
 
 umount $TMPDIRO
 
@@ -110,12 +158,21 @@ umount $TMPDIRO
 cd $TMPDIRN/live
 unsquashfs filesystem.squashfs
 
-echo "Now edit any part of clonezilla live-cd in ${TMPDIRN}/live/squashfs-root/opt/drbl/"
-echo "when finished leave this shell by typing exit, if called with -b option"
-echo "place an empty CD or CD/RW in the drive."
+echo ""
+echo "Now edit any part of clonezilla live-cd in ${TMPDIRN}/live/squashfs-root/"
+echo ""
+echo "This would be the proper time to chroot to ${TMPDIRN}/live/squashfs-root/ in a separate terminal."
+echo ""
+echo "If you have previously created a remastered disc, and would like to restore"
+echo "a tar ball, now would be the time to do it!"
+echo ""
+echo "If you used the (deprecated) -b option, place an empty CD or CD/RW in the drive."
+echo ""
+echo "When you're done, type 'exit', and this will create your ISO."
+echo ""
 
-##cd $TMPDIRN/pkg/opt/drbl
-cd $TMPDIRN/live/squashfs-root/opt/drbl
+#Take you to the root!
+cd $TMPDIRN/live/squashfs-root/
 
 sh
 
@@ -144,7 +201,7 @@ genisoimage \
  -A "$APPLICATION" \
  -V "$VOLUME" \
  -p "$PREPARER" -publisher "$PUBLISHER" \
- -b isolinux/isolinux.bin -c isolinux/boot.cat \
+ -b syslinux/isolinux.bin -c syslinux/boot.cat \
  -no-emul-boot -boot-load-size 4 -boot-info-table \
   -r -J -l -input-charset iso8859-1 $TMPDIRN | \
   (
